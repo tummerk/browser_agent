@@ -1,96 +1,153 @@
 # Browser Agent
 
-Browser Agent is a Go-based service that provides browser automation capabilities using the go-rod library. The primary function is to retrieve the DOM of websites, with plans to extend functionality in the future.
+Browser Agent - это продвинутый браузерный агент на Go, который использует ИИ для автоматизации взаимодействия с веб-сайтами. Агент может выполнять сложные задачи, такие как поиск информации, заполнение форм, навигация по сайтам и многое другое, просто по текстовому описанию задачи.
 
-## Features
+## Особенности
 
-- Retrieve the DOM of any website
-- Navigate to specific URLs
-- Manage browser instances
-- Future extensibility for additional browser functions
+- **AI-управление**: Использует современные языковые модели (GPT, Claude, Groq, OpenRouter и др.) для принятия решений
+- **Автоматизация браузера**: Полноценное взаимодействие с веб-страницами через go-rod
+- **ReAct архитектура**: Использует цикл Observe-Think-Act для выполнения задач
+- **Интерактивные действия**: Клик, ввод текста, прокрутка, навигация, нажатие клавиш
+- **Умное сканирование DOM**: Анализирует страницу и предоставляет упрощенное представление с ID элементов
+- **Поддержка различных LLM**: Совместим с OpenAI, Anthropic, Groq, OpenRouter и другими API
+- **Stealth режим**: Обходит большинство систем детектирования ботов
 
-## Architecture
+## Архитектура
 
-The service is organized as follows:
+Система состоит из следующих основных компонентов:
 
-- `internal/browser/service.go`: Main browser service implementation
-- `cmd/dom-getter/main.go`: Example application demonstrating DOM retrieval
+- `internal/browser/`: Сервис браузера с поддержкой всех необходимых действий
+- `internal/agent/`: Оркестратор, реализующий цикл ReAct
+- `internal/llm/`: Клиент для взаимодействия с LLM API
+- `internal/config/`: Загрузка конфигурации из .env файла
+- `internal/entity/`: Структуры данных для состояния и действий
+- `cmd/app/`: Точка входа приложения
 
-## Getting Started
+## Установка и настройка
 
-### Prerequisites
+### Предварительные требования
 
-- Go 1.21 or later
-- Internet connection (for downloading dependencies)
+- Go 1.21 или выше
+- Интернет-соединение
+- API-ключ от LLM (OpenAI, Claude, Groq и т.д.)
 
-### Installation
+### Установка
 
-1. Clone the repository
-2. Navigate to the project directory: `cd my-browser-agent`
-3. Install dependencies: `go mod tidy`
-
-### Running the Example
-
-To run the example application that retrieves the DOM of example.com:
-
+1. Клонируйте репозиторий:
 ```bash
-go run cmd/dom-getter/main.go
+git clone <repository-url>
+cd browser-agent
 ```
 
-## Usage
-
-The browser service can be integrated into your own applications:
-
-```go
-import "browser-agent/internal/browser"
-
-ctx := context.Background()
-service, err := browser.NewBrowserService(ctx)
-if err != nil {
-    // handle error
-}
-defer service.Close()
-
-page, err := service.NavigateTo("https://example.com")
-if err != nil {
-    // handle error
-}
-
-dom, err := service.GetDOM(page)
-if err != nil {
-    // handle error
-}
-// Use the DOM string as needed
+2. Установите зависимости:
+```bash
+go mod tidy
 ```
 
-## API
+3. Скопируйте пример конфигурации:
+```bash
+cp .env.example .env
+```
 
-### `NewBrowserService(ctx context.Context) (*BrowserService, error)`
+4. Настройте переменные в `.env` файле:
+```env
+API_KEY=your_api_key_here
+MODEL=qwen/qwen3-32b
+URL=https://api.groq.com/openai/v1/
+```
 
-Creates a new browser service instance.
+Поддерживаемые провайдеры:
+- **OpenAI**: `URL=https://api.openai.com/v1/`, `MODEL=gpt-4o`
+- **Anthropic via Bedrock**: `URL=https://bedrock-runtime.us-east-1.amazonaws.com`, `MODEL=anthropic.claude-3-sonnet-20240229-v1:0`
+- **Groq**: `URL=https://api.groq.com/openai/v1/`, `MODEL=llama3-70b-8192`
+- **OpenRouter**: `URL=https://openrouter.ai/api/v1/`, `MODEL=google/gemini-flash-1.5`
+- **Сustom OpenAI-compatible**: Любой совместимый API
 
-### `GetDOM(page *rod.Page) (string, error)`
+## Запуск
 
-Retrieves the DOM of the current page.
+Запустите приложение:
+```bash
+go run cmd/app/main.go
+```
 
-### `NavigateTo(url string) (*rod.Page, error)`
+После запуска вы увидите приветствие:
+```
+==================================================
+🤖 AGENT ONLINE. Браузер готов к командам.
+   (Введите 'exit', 'quit' или Ctrl+C для выхода)
+==================================================
+```
 
-Navigates to a specific URL and returns the page instance.
+Теперь вы можете вводить задачи, например:
+- "Найди мне кроссовки Nike Air Max на Wildberries"
+- "Перейди на сайт booking.com и найди отель в Москве на 3 дня"
+- "Заполни форму регистрации на сайте example.com"
 
-### `Close()`
+## Поддерживаемые действия
 
-Closes the browser service and releases resources.
+Агент может выполнять следующие действия:
 
-### `GetPageByURL(url string) (*rod.Page, error)`
+- `click(id)`: Клик по элементу с указанным ID
+- `type(id, text)`: Ввод текста в поле с указанным ID
+- `scroll(direction)`: Прокрутка страницы (up/down)
+- `navigate(url)`: Переход на указанный URL
+- `press(key)`: Нажатие клавиши (enter, escape, tab и др.)
+- `go_back()`: Возврат на предыдущую страницу
+- `read_text(id)`: Чтение текста из элемента
+- `done(result)`: Завершение задачи с результатом
 
-Gets an existing page by URL or creates a new one if it doesn't exist.
+## Как это работает
 
-## Future Enhancements
+1. **Observe**: Агент сканирует текущую страницу и создает упрощенное представление DOM с ID элементов
+2. **Think**: Состояние страницы и задача пользователя отправляются в LLM для анализа
+3. **Act**: LLM возвращает решение о следующем действии, которое агент выполняет
+4. **Repeat**: Цикл повторяется до выполнения задачи или достижения лимита шагов
 
-- Element selection and manipulation
-- Form filling and submission
-- Screenshot capabilities
-- JavaScript execution
-- Cookie management
-- Proxy support
-- Headless mode configuration
+Пример вывода DOM:
+```
+Visible Content:
+[1] <h1> Welcome to Example Site </h1>
+[2] <p> This is a sample paragraph with information. </p>
+[3] <input type='text'> [SEARCH INPUT]
+[4] <button> Search </button>
+[5] <a> About Us </a>
+[6] <button> {✓ CHECKED} Submit </button>
+[7] <input type='checkbox'> ☐ unchecked
+[8] <div> {★ ACTIVE} Featured Item </div>
+```
+
+## Конфигурация
+
+Файл `.env` содержит следующие параметры:
+
+- `API_KEY`: API-ключ для доступа к LLM
+- `MODEL`: Название модели (по умолчанию: gpt-3.5-turbo)
+- `URL`: URL API провайдера (по умолчанию: https://api.groq.com/openai/v1/)
+
+## Тестирование
+
+Для тестирования браузерных функций в изоляции можно использовать:
+```bash
+go run cmd/browser_test/advanced_main.go
+```
+
+## Архитектурные особенности
+
+- **Persistent Session**: Браузер сохраняет сессии в папке `user_data`
+- **Stealth Mode**: Используется go-rod/stealth для обхода детектирования ботов
+- **Element Caching**: Эффективное кэширование элементов для быстрого доступа
+- **Timeout Handling**: Все операции имеют таймауты для предотвращения зависания
+- **Multi-tab Support**: Поддержка работы с несколькими вкладками
+- **Visual Feedback**: Элементы подсвечиваются при взаимодействии
+
+## Примеры задач
+
+Агент может выполнять широкий спектр задач:
+
+- Поиск информации на сайтах
+- Заполнение и отправка форм
+- Навигация по сайтам с регистрацией
+- Сравнение цен и характеристик товаров
+- Бронирование билетов и отелей
+- Сбор данных с веб-страниц
+- Автоматизация рутинных действий
